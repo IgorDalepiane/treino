@@ -1,5 +1,6 @@
 (() => {
   const KEY = "treino.gym.v1";
+  const PICK_KEY = "treino.picked.v1";
   const C = window.Catalog;
   const $ = (sel, el = document) => el.querySelector(sel);
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random()}`);
@@ -99,13 +100,30 @@
     },
   };
 
+  function loadPicked() {
+    try {
+      const raw = localStorage.getItem(PICK_KEY);
+      const data = raw ? JSON.parse(raw) : {};
+      return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+    } catch {
+      return {};
+    }
+  }
+
   const state = {
     selectedJsDow: C.jsWeekday(),
-    picked: {},
+    picked: loadPicked(),
   };
 
+  function setPicked(slotId, variantId) {
+    state.picked[slotId] = variantId;
+    localStorage.setItem(PICK_KEY, JSON.stringify(state.picked));
+  }
+
   function pickedVariant(slot) {
-    return state.picked[slot.id] || store.lastVariant(slot.id) || slot.main.id;
+    const id = state.picked[slot.id];
+    if (id && slot.options.some((o) => o.id === id)) return id;
+    return slot.main.id;
   }
 
   function selectAllOnFocus(input) {
@@ -338,7 +356,7 @@
     const card = document.querySelector(`[data-slot="${slot.id}"]`);
     const persist = () => {
       const variantId = variantOf(slot);
-      state.picked[slot.id] = variantId;
+      setPicked(slot.id, variantId);
       store.saveExercise(todayStr(), program.id, slot.id, variantId, currentSets(slot));
       const cap = card.querySelector("[data-caption]");
       cap.textContent = "Registrado hoje nesta variação";
@@ -349,7 +367,7 @@
 
     const applyVariant = () => {
       const variantId = variantOf(slot);
-      state.picked[slot.id] = variantId;
+      setPicked(slot.id, variantId);
       const option = slot.options.find((o) => o.id === variantId) || slot.main;
       card.querySelector(".ex-title").textContent = option.name;
       const view = displayFor(slot, program.id, variantId);
@@ -387,7 +405,7 @@
     });
     card.querySelector("[data-video]").onclick = () => {
       const variantId = variantOf(slot);
-      state.picked[slot.id] = variantId;
+      setPicked(slot.id, variantId);
       const option = slot.options.find((o) => o.id === variantId) || slot.main;
       openVideo(option);
     };
