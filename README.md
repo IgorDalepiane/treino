@@ -10,9 +10,9 @@ Execução: loops frente/lado do MuscleWiki no próprio app (a página deles nã
 
 URL pública (só a ficha, sem os pesos):
 
-**https://igordalepiane.github.io/treino/**
+**https://igordalepiane.github.io/treino/?v=5**
 
-Safari → essa URL → Compartilhar → **Adicionar à Tela de Início**.
+No Safari (bússola, não o ícone da Tela de Início). Tem que aparecer **v5** ao lado de Treino. Aí Compartilhar → Adicionar à Tela de Início (apaga o ícone velho se ainda apontar pra `192.168.0.3`).
 
 ## Em casa, no Mac (opcional)
 
