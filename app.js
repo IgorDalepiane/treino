@@ -178,7 +178,7 @@
 
     root.innerHTML = `
       <header class="top">
-        <h1>Treino <span class="ver">v5</span></h1>
+        <h1>Treino <span class="ver">v6</span></h1>
         <button class="icon-btn" id="btn-data" type="button" aria-label="Exportar e importar">↑</button>
       </header>
       <nav class="week">
