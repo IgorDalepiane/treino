@@ -101,9 +101,12 @@
 
   const state = {
     selectedJsDow: C.jsWeekday(),
-    video: null,
-    settings: false,
+    picked: {},
   };
+
+  function pickedVariant(slot) {
+    return state.picked[slot.id] || store.lastVariant(slot.id) || slot.main.id;
+  }
 
   function selectAllOnFocus(input) {
     const pick = () => {
@@ -158,11 +161,11 @@
     root.innerHTML = `
       <header class="top">
         <h1>Treino</h1>
-        <button class="icon-btn" id="btn-data" aria-label="Exportar e importar">↑</button>
+        <button class="icon-btn" id="btn-data" type="button" aria-label="Exportar e importar">↑</button>
       </header>
       <nav class="week">
         ${C.orderedWeek.map((d) => `
-          <button data-dow="${d.id}" class="${d.id === todayJs ? "today" : ""} ${d.id === state.selectedJsDow ? "sel" : ""}">
+          <button type="button" data-dow="${d.id}" class="${d.id === todayJs ? "today" : ""} ${d.id === state.selectedJsDow ? "sel" : ""}">
             <span class="dow">${d.shortName}</span>
             <span class="pill-txt accent-${d.accent}">${C.pill(d)}</span>
           </button>
@@ -170,25 +173,6 @@
       </nav>
       ${browsing ? `<div class="banner">Hoje é ${C.WEEKDAYS[todayJs]}. Isso é o plano de ${C.WEEKDAYS[state.selectedJsDow]} — pode treinar mesmo assim.</div>` : ""}
       <div class="scroll" id="main"></div>
-      <div class="sheet ${state.video ? "" : "hidden"}" id="video-sheet">
-        <header>
-          <strong id="video-title"></strong>
-          <button class="icon-btn" id="video-close">OK</button>
-        </header>
-        <div class="player" id="video-player"></div>
-      </div>
-      <div class="sheet ${state.settings ? "" : "hidden"}" id="settings-sheet">
-        <header>
-          <strong>Dados</strong>
-          <button class="icon-btn" id="settings-close">OK</button>
-        </header>
-        <div class="scroll file-row">
-          <p class="muted">Os pesos ficam neste iPhone (Safari). Exporta um JSON se for apagar o site. O app nativo no Xcode não foi apagado — este JSON é o mesmo formato.</p>
-          <button id="btn-export">Exportar JSON</button>
-          <label>Importar JSON<input type="file" id="btn-import" accept="application/json,.json" hidden></label>
-          <p class="muted" id="data-msg"></p>
-        </div>
-      </div>
     `;
 
     const main = $("#main");
@@ -201,36 +185,45 @@
         render();
       });
     });
-    $("#btn-data").onclick = () => { state.settings = true; render(); };
-    $("#settings-close").onclick = () => { state.settings = false; render(); };
-    $("#video-close").onclick = () => { state.video = null; render(); };
-    $("#btn-export").onclick = exportFile;
-    $("#btn-import").onchange = importFile;
+    $("#btn-data").onclick = openSettings;
+  }
 
-    if (state.video) {
-      $("#video-title").textContent = state.video.name;
-      const player = $("#video-player");
-      const slug = state.video.slug;
-      const files = (window.MW_VIDEOS && window.MW_VIDEOS[slug]) || [];
-      const labels = ["Frente", "Lado"];
-      const clips = files.map((file, i) => {
-        const src = `https://musclewiki.com/api-next/videos/${file}`;
-        return `
-          <div>
-            <div class="angle">${labels[i] || "Vídeo"}</div>
-            <video src="${src}" playsinline webkit-playsinline muted loop autoplay controls
-              referrerpolicy="no-referrer" title="${state.video.name}"></video>
-          </div>`;
-      }).join("");
-      player.innerHTML = `
-        ${clips || `<p class="muted">Sem loop neste exercício.</p>`}
-        <p class="muted">Vídeo MuscleWiki. Execução no app; a página oficial também abre se quiser o texto.</p>
-        <a href="${state.video.url}" target="_blank" rel="noopener">Abrir no MuscleWiki</a>
-      `;
-      player.querySelectorAll("video").forEach((v) => {
-        v.play().catch(() => {});
-      });
-    }
+  function openSettings() {
+    $("#settings-sheet").classList.remove("hidden");
+  }
+
+  function closeSettings() {
+    $("#settings-sheet").classList.add("hidden");
+  }
+
+  function openVideo(option) {
+    $("#video-title").textContent = option.name;
+    const player = $("#video-player");
+    const files = (window.MW_VIDEOS && window.MW_VIDEOS[option.slug]) || [];
+    const labels = ["Frente", "Lado"];
+    const clips = files.map((file, i) => {
+      const src = `https://musclewiki.com/api-next/videos/${file}`;
+      return `
+        <div>
+          <div class="angle">${labels[i] || "Vídeo"}</div>
+          <video src="${src}" playsinline webkit-playsinline muted loop autoplay controls
+            referrerpolicy="no-referrer" title="${option.name}"></video>
+        </div>`;
+    }).join("");
+    player.innerHTML = `
+      ${clips || `<p class="muted">Sem loop neste exercício.</p>`}
+      <p class="muted">Vídeo MuscleWiki. Execução no app; a página oficial também abre se quiser o texto.</p>
+      <a href="${option.url}" target="_blank" rel="noopener">Abrir no MuscleWiki</a>
+    `;
+    $("#video-sheet").classList.remove("hidden");
+    player.querySelectorAll("video").forEach((v) => {
+      v.play().catch(() => {});
+    });
+  }
+
+  function closeVideo() {
+    $("#video-player").innerHTML = "";
+    $("#video-sheet").classList.add("hidden");
   }
 
   function renderInfo(main, selected) {
@@ -265,7 +258,7 @@
     const date = todayStr();
     const next = program.slots.find((s) => !store.hasLoggedSlot(date, program.id, s.id));
     const nextName = next
-      ? (next.options.find((o) => o.id === store.lastVariant(next.id)) || next.main).name
+      ? (next.options.find((o) => o.id === pickedVariant(next)) || next.main).name
       : "";
 
     main.innerHTML = `
@@ -288,7 +281,7 @@
   }
 
   function exerciseCard(program, slot) {
-    const variantId = store.lastVariant(slot.id) || slot.main.id;
+    const variantId = pickedVariant(slot);
     const option = slot.options.find((o) => o.id === variantId) || slot.main;
     const view = displayFor(slot, program.id, variantId);
     return `
@@ -345,6 +338,7 @@
     const card = document.querySelector(`[data-slot="${slot.id}"]`);
     const persist = () => {
       const variantId = variantOf(slot);
+      state.picked[slot.id] = variantId;
       store.saveExercise(todayStr(), program.id, slot.id, variantId, currentSets(slot));
       const cap = card.querySelector("[data-caption]");
       cap.textContent = "Registrado hoje nesta variação";
@@ -355,6 +349,7 @@
 
     const applyVariant = () => {
       const variantId = variantOf(slot);
+      state.picked[slot.id] = variantId;
       const option = slot.options.find((o) => o.id === variantId) || slot.main;
       card.querySelector(".ex-title").textContent = option.name;
       const view = displayFor(slot, program.id, variantId);
@@ -391,9 +386,10 @@
       });
     });
     card.querySelector("[data-video]").onclick = () => {
-      const option = slot.options.find((o) => o.id === variantOf(slot)) || slot.main;
-      state.video = option;
-      render();
+      const variantId = variantOf(slot);
+      state.picked[slot.id] = variantId;
+      const option = slot.options.find((o) => o.id === variantId) || slot.main;
+      openVideo(option);
     };
   }
 
@@ -414,7 +410,7 @@
       try {
         store.importJSON(String(reader.result), false);
         $("#data-msg").textContent = "Importado.";
-        state.settings = false;
+        closeSettings();
         render();
       } catch (err) {
         $("#data-msg").textContent = String(err.message || err);
@@ -423,5 +419,9 @@
     reader.readAsText(file);
   }
 
+  $("#video-close").onclick = closeVideo;
+  $("#settings-close").onclick = closeSettings;
+  $("#btn-export").onclick = exportFile;
+  $("#btn-import").onchange = importFile;
   render();
 })();
