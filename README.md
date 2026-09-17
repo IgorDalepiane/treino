@@ -1,27 +1,35 @@
-# Treino (HTML)
+# Treino
 
-Versão web da mesma ficha do app iOS. **Não substitui** `ios/Treino`.
+Ficha PPL do Igor. Repo **público**: HTML no GitHub Pages + app iOS nativo.
+
+- HTML (academia / 4G): **https://igordalepiane.github.io/treino/**
+- App iPhone: `ios/Treino` (SwiftUI). Pesos ficam no aparelho.
+
+Contexto pessoal (saúde, rotina, notas) fica no repo **privado** `personal-records`, não aqui.
+
+## HTML (Safari / Tela de Início)
 
 Pesos ficam no Safari deste iPhone (`localStorage`). JSON de export/import é o mesmo formato do app nativo.
 
 Execução: loops frente/lado do MuscleWiki no próprio app (a página deles não abre em iframe).
 
-## Na academia (4G)
+No Safari (bússola, não o ícone da Tela de Início). Tem que aparecer **v6** ao lado de Treino: https://igordalepiane.github.io/treino/?v=6
 
-URL pública (só a ficha, sem os pesos):
-
-**https://igordalepiane.github.io/treino/?v=6**
-
-No Safari (bússola, não o ícone da Tela de Início). Tem que aparecer **v6** ao lado de Treino.
-
-## Em casa, no Mac (opcional)
+Em casa, no Mac (opcional):
 
 ```bash
-python3 web/treino/serve.py
+python3 serve.py
 ```
 
 `http://IP-DO-MAC:3850` só funciona no Wi-Fi de casa.
 
-## O que o HTML faz
+## App iOS
 
-Semana, qualquer dia, kg/reps por variação, último treino daquela variação, teclado numérico com valor selecionado, execução MuscleWiki, exportar JSON.
+```bash
+cd ios/Treino
+xcodebuild -scheme Treino -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath build build
+```
+
+No iPhone: abra `ios/Treino/Treino.xcodeproj` no Xcode, Team em Signing (Automatic), plugue o aparelho, rode.
+
+Detalhes e XCUITest: `ios/README.md`.
