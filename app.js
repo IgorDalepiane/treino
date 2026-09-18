@@ -24,19 +24,27 @@
     return Math.round(n * 10) / 10;
   };
 
+  function emptyData() {
+    return { version: 2, sessions: [], diet: {} };
+  }
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (!raw) return { version: 1, sessions: [] };
+      if (!raw) return emptyData();
       const data = JSON.parse(raw);
-      if (!Array.isArray(data.sessions)) return { version: 1, sessions: [] };
-      return data;
+      if (!Array.isArray(data.sessions)) return emptyData();
+      const diet = data.diet && typeof data.diet === "object" && !Array.isArray(data.diet) ? data.diet : {};
+      return { version: 2, sessions: data.sessions, diet };
     } catch {
-      return { version: 1, sessions: [] };
+      return emptyData();
     }
   }
   function save(data) {
-    localStorage.setItem(KEY, JSON.stringify({ version: 1, sessions: data.sessions }));
+    localStorage.setItem(KEY, JSON.stringify({
+      version: 2,
+      sessions: data.sessions,
+      diet: data.diet || {},
+    }));
   }
 
   const store = {
@@ -84,6 +92,20 @@
       session.exercises.push(row);
       save(this.data);
     },
+    dietDay(date) {
+      const row = this.data.diet[date];
+      return row && typeof row === "object" ? row : {};
+    },
+    dietDone(date, mealId) {
+      return Boolean(this.dietDay(date)[mealId]);
+    },
+    toggleDiet(date, mealId) {
+      if (!this.data.diet[date] || typeof this.data.diet[date] !== "object") this.data.diet[date] = {};
+      if (this.data.diet[date][mealId]) delete this.data.diet[date][mealId];
+      else this.data.diet[date][mealId] = true;
+      if (!Object.keys(this.data.diet[date]).length) delete this.data.diet[date];
+      save(this.data);
+    },
     importJSON(text, replaceAll) {
       const incoming = JSON.parse(text);
       if (!Array.isArray(incoming.sessions)) throw new Error("JSON inválido");
@@ -93,10 +115,21 @@
         for (const s of incoming.sessions) map.set(s.id, s);
         this.data.sessions = [...map.values()];
       }
+      const incomingDiet = incoming.diet && typeof incoming.diet === "object" && !Array.isArray(incoming.diet)
+        ? incoming.diet : null;
+      if (incomingDiet) {
+        if (replaceAll) this.data.diet = { ...incomingDiet };
+        else {
+          for (const [day, meals] of Object.entries(incomingDiet)) {
+            if (!meals || typeof meals !== "object") continue;
+            this.data.diet[day] = { ...(this.data.diet[day] || {}), ...meals };
+          }
+        }
+      }
       save(this.data);
     },
     exportJSON() {
-      return JSON.stringify({ version: 1, sessions: this.data.sessions }, null, 2);
+      return JSON.stringify({ version: 2, sessions: this.data.sessions, diet: this.data.diet || {} }, null, 2);
     },
   };
 
@@ -113,7 +146,15 @@
   const state = {
     selectedJsDow: C.jsWeekday(),
     picked: loadPicked(),
+    mode: location.hash === "#dieta" ? "diet" : "gym",
+    fold: {},
   };
+
+  function setMode(mode) {
+    state.mode = mode === "diet" ? "diet" : "gym";
+    const hash = state.mode === "diet" ? "#dieta" : "";
+    if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname + location.search);
+  }
 
   function setPicked(slotId, variantId) {
     state.picked[slotId] = variantId;
@@ -175,12 +216,17 @@
     const todayJs = C.jsWeekday();
     const selected = C.day(state.selectedJsDow);
     const browsing = state.selectedJsDow !== todayJs;
+    const diet = state.mode === "diet";
 
     root.innerHTML = `
       <header class="top">
-        <h1>Treino <span class="ver">v6</span></h1>
+        <h1>${diet ? "Dieta" : "Treino"} <span class="ver">v7</span></h1>
         <button class="icon-btn" id="btn-data" type="button" aria-label="Exportar e importar">↑</button>
       </header>
+      <div class="mode" role="tablist" aria-label="Modo">
+        <button type="button" role="tab" class="mode-btn ${diet ? "" : "sel"}" data-mode="gym" aria-selected="${diet ? "false" : "true"}">Treino</button>
+        <button type="button" role="tab" class="mode-btn ${diet ? "sel" : ""}" data-mode="diet" aria-selected="${diet ? "true" : "false"}">Dieta</button>
+      </div>
       <nav class="week">
         ${C.orderedWeek.map((d) => `
           <button type="button" data-dow="${d.id}" class="${d.id === todayJs ? "today" : ""} ${d.id === state.selectedJsDow ? "sel" : ""}">
@@ -189,17 +235,24 @@
           </button>
         `).join("")}
       </nav>
-      ${browsing ? `<div class="banner">Hoje é ${C.WEEKDAYS[todayJs]}. Isso é o plano de ${C.WEEKDAYS[state.selectedJsDow]} — pode treinar mesmo assim.</div>` : ""}
+      ${browsing ? `<div class="banner">Hoje é ${C.WEEKDAYS[todayJs]}. Isso é o plano de ${C.WEEKDAYS[state.selectedJsDow]}${diet ? "" : " — pode treinar mesmo assim"}.</div>` : ""}
       <div class="scroll" id="main"></div>
     `;
 
     const main = $("#main");
-    if (selected.kind === "gym") renderWorkout(main, C.program(selected.programId));
+    if (diet) renderDiet(main, state.selectedJsDow);
+    else if (selected.kind === "gym") renderWorkout(main, C.program(selected.programId));
     else renderInfo(main, selected);
 
     root.querySelectorAll(".week button").forEach((b) => {
       b.addEventListener("click", () => {
         state.selectedJsDow = Number(b.dataset.dow);
+        render();
+      });
+    });
+    root.querySelectorAll(".mode-btn").forEach((b) => {
+      b.addEventListener("click", () => {
+        setMode(b.dataset.mode);
         render();
       });
     });
@@ -272,6 +325,70 @@
     });
   }
 
+  function ymdForDow(jsDow) {
+    const now = new Date();
+    const toMon = (js) => (js + 6) % 7;
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (toMon(jsDow) - toMon(now.getDay())));
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  function renderListBlock(listKey) {
+    const block = window.Diet.L[listKey];
+    if (!block) return "";
+    return `
+      <p class="muted">${block.title}</p>
+      ${block.groups.map((g) => `
+        <p class="list-label">${g.name}</p>
+        <ul>${g.items.map((i) => `<li>${i}</li>`).join("")}</ul>
+      `).join("")}`;
+  }
+
+  function renderDiet(main, jsDow) {
+    const D = window.Diet;
+    const date = ymdForDow(jsDow);
+    const meals = D.meals(jsDow);
+    const next = meals.find((m) => !store.dietDone(date, m.id));
+    main.innerHTML = `
+      <p class="muted">Marca em ${pretty(date)}. Esqueleto do PDF da Letícia — não é consulta nova.</p>
+      <div class="card"><p class="muted">${D.banner(jsDow)}</p></div>
+      ${next
+        ? `<div class="next"><span><small>Próxima</small><br><strong>${next.title}</strong></span><span>↓</span></div>`
+        : `<div class="done">Refeições deste dia marcadas.</div>`}
+      ${meals.map((m) => {
+        const done = store.dietDone(date, m.id);
+        const isNext = next && next.id === m.id;
+        return `
+          <article class="card meal ${done ? "logged" : ""} ${isNext ? "next-meal" : ""}" id="meal-${m.id}">
+            <button type="button" class="meal-check" data-meal="${m.id}" aria-pressed="${done}">
+              <span class="tick">${done ? "✓" : ""}</span>
+              <span class="meal-copy">
+                <small>${m.time}</small>
+                <strong>${m.title}</strong>
+              </span>
+            </button>
+            <p class="muted">${m.blurb}</p>
+            ${m.listKey ? `<details class="opts"><summary>Opções</summary>${renderListBlock(m.listKey)}</details>` : ""}
+          </article>`;
+      }).join("")}
+      <h3 class="section">Regras</h3>
+      <ul class="rules">${D.rules.map((r) => `<li>${r}</li>`).join("")}</ul>
+    `;
+    main.querySelectorAll(".meal-check").forEach((b) => {
+      b.onclick = () => {
+        store.toggleDiet(date, b.dataset.meal);
+        render();
+      };
+    });
+  }
+
+  function slotExpanded(program, slot) {
+    if (Object.prototype.hasOwnProperty.call(state.fold, slot.id)) return state.fold[slot.id];
+    const date = todayStr();
+    const next = program.slots.find((s) => !store.hasLoggedSlot(date, program.id, s.id));
+    return Boolean(next && next.id === slot.id);
+  }
+
   function renderWorkout(main, program) {
     const date = todayStr();
     const next = program.slots.find((s) => !store.hasLoggedSlot(date, program.id, s.id));
@@ -302,36 +419,42 @@
     const variantId = pickedVariant(slot);
     const option = slot.options.find((o) => o.id === variantId) || slot.main;
     const view = displayFor(slot, program.id, variantId);
+    const open = slotExpanded(program, slot);
     return `
-      <article class="card ex ${view.logged ? "logged" : ""}" id="ex-${slot.id}" data-slot="${slot.id}">
-        <div class="row">
+      <article class="card ex ${view.logged ? "logged" : ""} ${open ? "" : "collapsed"}" id="ex-${slot.id}" data-slot="${slot.id}">
+        <div class="ex-head" data-toggle="${slot.id}">
           <div>
-            <div class="muted">${slot.isWarmup ? "AQUECIMENTO · " : ""}${slot.prescription}</div>
-            <h2 style="font-size:1.05rem;margin-top:2px" class="ex-title">${option.name}</h2>
-            ${slot.note ? `<p class="muted">${slot.note}</p>` : ""}
+            <div class="muted">${slot.isWarmup ? "AQUECIMENTO · " : ""}${slot.prescription}${view.logged ? " · hoje" : ""}</div>
+            <h2 class="ex-title">${option.name}</h2>
           </div>
-          <button class="exec" data-video="${slot.id}">▶ Execução</button>
+          <div class="ex-head-actions">
+            <button class="exec" type="button" data-video="${slot.id}">▶</button>
+            <span class="chev" aria-hidden="true"></span>
+          </div>
         </div>
-        ${slot.variants.length ? `
-          <select data-variant="${slot.id}">
-            ${slot.options.map((o) => `<option value="${o.id}" ${o.id === variantId ? "selected" : ""}>${o.name} · ${o.kind}</option>`).join("")}
-          </select>
-        ` : ""}
-        <p class="caption ${view.logged ? "ok" : "muted"}" data-caption="${slot.id}">${view.caption}</p>
-        <div class="sets">
-          ${view.sets.map((s, i) => `
-            <div class="set">
-              <b>S${i + 1}</b>
-              <div class="num">
-                <input inputmode="decimal" enterkeyhint="done" data-kg="${slot.id}" data-i="${i}" value="${formatKg(s.kg)}" aria-label="kg série ${i + 1}">
-                <span>kg</span>
+        <div class="ex-body">
+          ${slot.note ? `<p class="muted">${slot.note}</p>` : ""}
+          ${slot.variants.length ? `
+            <select data-variant="${slot.id}">
+              ${slot.options.map((o) => `<option value="${o.id}" ${o.id === variantId ? "selected" : ""}>${o.name} · ${o.kind}</option>`).join("")}
+            </select>
+          ` : ""}
+          <p class="caption ${view.logged ? "ok" : "muted"}" data-caption="${slot.id}">${view.caption}</p>
+          <div class="sets">
+            ${view.sets.map((s, i) => `
+              <div class="set">
+                <b>S${i + 1}</b>
+                <div class="num">
+                  <input inputmode="decimal" enterkeyhint="done" data-kg="${slot.id}" data-i="${i}" value="${formatKg(s.kg)}" aria-label="kg série ${i + 1}">
+                  <span>kg</span>
+                </div>
+                <div class="num">
+                  <input inputmode="numeric" enterkeyhint="done" data-reps="${slot.id}" data-i="${i}" value="${s.reps}" aria-label="reps série ${i + 1}">
+                  <span>reps</span>
+                </div>
               </div>
-              <div class="num">
-                <input inputmode="numeric" enterkeyhint="done" data-reps="${slot.id}" data-i="${i}" value="${s.reps}" aria-label="reps série ${i + 1}">
-                <span>reps</span>
-              </div>
-            </div>
-          `).join("")}
+            `).join("")}
+          </div>
         </div>
       </article>
     `;
@@ -387,6 +510,16 @@
     const sel = card.querySelector("[data-variant]");
     if (sel) sel.addEventListener("change", applyVariant);
 
+    const head = card.querySelector("[data-toggle]");
+    if (head) {
+      head.addEventListener("click", (e) => {
+        if (e.target.closest("[data-video]")) return;
+        const expand = card.classList.contains("collapsed");
+        state.fold[slot.id] = expand;
+        card.classList.toggle("collapsed", !expand);
+      });
+    }
+
     card.querySelectorAll("[data-kg]").forEach((input) => {
       bindNumeric(input, (raw) => {
         const v = parseKg(raw);
@@ -441,5 +574,12 @@
   $("#settings-close").onclick = closeSettings;
   $("#btn-export").onclick = exportFile;
   $("#btn-import").onchange = importFile;
+  window.addEventListener("hashchange", () => {
+    const next = location.hash === "#dieta" ? "diet" : "gym";
+    if (state.mode !== next) {
+      state.mode = next;
+      render();
+    }
+  });
   render();
 })();

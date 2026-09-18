@@ -121,11 +121,11 @@ window.Catalog = (() => {
   const week = [
     { id: 1, shortName: "Seg", title: "Vôlei", subtitle: "21:00 · areia", body: "Sem academia, sem corrida. Depois do longão de domingo.", kind: "info", accent: "volei" },
     { id: 2, shortName: "Ter", title: "Pull", subtitle: "12:00 · academia", body: "Costas + bíceps.", kind: "gym", programId: "pull", accent: "pull" },
-    { id: 3, shortName: "Qua", title: "Corrida fácil", subtitle: "~8:00 · Runna", body: "Só o encaixe. Volume e ritmo ficam no Runna. Sem academia nesse dia — mas você pode abrir o Pull, Pernas ou Push se quiser treinar.", kind: "info", accent: "run" },
+    { id: 3, shortName: "Qua", title: "Corrida fácil", subtitle: "depois 17:30 · Runna", body: "Depois do trabalho. Volume e ritmo ficam no Runna. Sem academia nesse dia — mas você pode abrir o Pull, Pernas ou Push se quiser treinar.", kind: "info", accent: "run" },
     { id: 4, shortName: "Qui", title: "Vôlei", subtitle: "20:00 · areia", body: "Sem academia. Quarta foi só corrida.", kind: "info", accent: "volei" },
     { id: 5, shortName: "Sex", title: "Pernas", subtitle: "12:00 · academia", body: "Sai andando, não mancando. Sem panturrilha pesada.", kind: "gym", programId: "legs", accent: "legs" },
     { id: 6, shortName: "Sáb", title: "Push · peito", subtitle: "8:00–9:30", body: "Melhor dia de peito: longe do vôlei. Inclinação primeiro.", kind: "gym", programId: "push", accent: "push" },
-    { id: 0, shortName: "Dom", title: "Corrida longa", subtitle: "Runna · qualidade", body: "Dia livre, sem academia. Não correr sábado nem segunda.", kind: "info", accent: "run" },
+    { id: 0, shortName: "Dom", title: "Corrida longa", subtitle: "14h–15:30 · missa 18:30", body: "Qualidade no Runna. Sem academia. Não correr sábado nem segunda. Missa 18:30–20h.", kind: "info", accent: "run" },
   ];
   const orderedWeek = [1, 2, 3, 4, 5, 6, 0].map((id) => week.find((d) => d.id === id));
   return {

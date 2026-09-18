@@ -9,9 +9,9 @@
   <meta name="apple-mobile-web-app-title" content="Treino" />
   <meta name="theme-color" content="#0b0d11" />
   <title>Treino</title>
-  <link rel="manifest" href="manifest.webmanifest?v=6" />
+  <link rel="manifest" href="manifest.webmanifest?v=7" />
   <link rel="apple-touch-icon" href="icon.png" />
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
   <div class="app" id="app"></div>
@@ -28,15 +28,16 @@
       <button class="icon-btn" id="settings-close" type="button">OK</button>
     </header>
     <div class="scroll file-row">
-      <p class="muted">Os pesos ficam neste iPhone (Safari). Exporta um JSON se for apagar o site. O app nativo no Xcode não foi apagado — este JSON é o mesmo formato.</p>
+      <p class="muted">Pesos e checks da dieta ficam neste iPhone (Safari). Exporta um JSON se for apagar o site. Versão antiga (só sessions) ainda importa. O app nativo no Xcode não lê a dieta.</p>
       <button id="btn-export" type="button">Exportar JSON</button>
       <label>Importar JSON<input type="file" id="btn-import" accept="application/json,.json" hidden></label>
       <p class="muted" id="data-msg"></p>
     </div>
   </div>
-  <script src="catalog.js?v=6"></script>
-  <script src="videos.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="catalog.js?v=7"></script>
+  <script src="diet.js?v=7"></script>
+  <script src="videos.js?v=7"></script>
+  <script src="app.js?v=7"></script>
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.getRegistrations().then((regs) => {
