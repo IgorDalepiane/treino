@@ -252,6 +252,7 @@
     });
     root.querySelectorAll(".mode-btn").forEach((b) => {
       b.addEventListener("click", () => {
+        if (b.dataset.mode === "gym") state.selectedJsDow = C.jsWeekday();
         setMode(b.dataset.mode);
         render();
       });
